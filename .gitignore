@@ -37,3 +37,10 @@ postgres_data/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Frontend test and TypeScript build outputs
+frontend/.test-build/
+frontend/vite.config.js
+frontend/vite.config.d.ts
+output/
+.playwright-cli/

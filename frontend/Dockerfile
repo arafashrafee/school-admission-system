@@ -6,13 +6,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy source code
 COPY . .
 
 # Run build to ensure type safety and bundle verification
-RUN npm run build
+RUN npm test && npm run build
 
 # Expose Vite development server port
 EXPOSE 5173

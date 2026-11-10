@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".test-build",
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": [
+    "tests",
+    "src/api.ts",
+    "src/types.ts",
+    "src/domain.ts",
+    "src/identity.ts",
+    "src/components/StatusBadge.tsx"
+  ],
+  "references": []
+}

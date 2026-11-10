@@ -226,3 +226,68 @@ and parallel allocation. Tests clean up only the classes and holds they create.
 The stress-test classes run sequentially and share a PostgreSQL connection pool
 to stay within the database connection limit while the live backend is running.
 Each stress test still submits 100 requests in parallel.
+
+## Phase 3: Browser workflows
+
+Open [http://localhost:5173](http://localhost:5173). The React frontend uses
+`VITE_API_URL` (default `http://localhost:8080`) and the exact assignment endpoints.
+It contains no mock offerings, hardcoded seat availability, or real payment integration.
+
+1. **Student identity:** enter a 17-digit Bangladesh birth registration number using
+   English digits. Leading zeroes are preserved. Identity is stored in this browser's
+   local storage; switch or clear it from the identity panel. This is identifier-based
+   demo access, not secure authentication. Clear identity on shared devices.
+2. **Available classes:** view backend-supplied class/shift names and total, held,
+   confirmed, and available seats. Counts refresh every four seconds, with manual
+   refresh and network error recovery. Full classes and existing active applications
+   cannot be applied to again from the UI.
+3. **Reserve:** click **Apply for a seat**. A successful reservation opens My
+   applications and shows the backend's deadline. Requests carry `X-Student-Id`,
+   never identity in URLs or query parameters.
+4. **Confirm:** click **Confirm Admission** while a hold is active. Payment is
+   explicitly simulated, with no real charge. Confirmation is idempotent.
+5. **Cancel:** choose **Cancel reservation**, then confirm in the dialog. The UI
+   handles the empty HTTP 204 response and refetches applications and seat counts.
+   Confirmed admissions cannot be cancelled.
+6. **Expiry and reopening:** countdowns derive from `expiresAt` and `Date.now()`
+   every second. Expired holds lose their action buttons immediately, and the UI
+   rechecks hold status and capacity. Reopening the browser restores identity and
+   refetches applications; timers never restart.
+7. **Admin:** open Admin, enter a combined class/shift name and positive seat total,
+   then create the offering. Duplicate names show a clear error. Administration is
+   intentionally public for this assignment; it does not provide administrator authentication.
+
+The interface includes mobile and desktop layouts, keyboard focus styles, labeled
+forms, a native cancellation dialog, status badges, and empty/loading/error states.
+Switching identity clears the previous student's visible applications immediately,
+ignores obsolete responses, and synchronizes identity changes between browser tabs.
+Aborted mutations can still have reached the server; applications are always refetched
+for the current identity rather than assuming the request was rolled back.
+
+### Frontend development and focused tests
+
+```bash
+cd frontend
+npm ci
+npm test
+npm run build
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+Tests use Node's built-in test runner and the existing TypeScript compiler. They
+cover identifier validation/persistence, deadline math, all status labels, assignment
+request paths/header identity, exact class inputs, HTTP 204 handling, malformed
+responses, structured errors, network errors, and the native browser fetch adapter.
+No application UI framework or test framework dependency was added. Vite was updated
+to the compatible maintained 6.4 patch line after the scaffold dependency audit.
+
+Compose still runs the Vite development server; its runtime `VITE_API_URL` is
+available to the browser through Vite. If deploying a production `dist` bundle later,
+set `VITE_API_URL` at build time. Production hosting is outside Phase 3.
+
+Phase 3 verification: 15 focused frontend tests and 31 backend regression tests pass.
+Real Chrome workflows were verified against the Compose API, including expiry with
+an explicitly shortened temporary test hold, offline recovery, student isolation,
+and restoration after reload/reopening. All three screens were checked for overflow
+at 320/390/768/1440px. Screenshots and browser traces are local verification artifacts
+and are excluded from source control.

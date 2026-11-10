@@ -55,3 +55,12 @@ This document outlines key engineering decisions and operational assumptions est
 - Class names use exact, case-sensitive uniqueness after trimming. Concurrent duplicates are resolved by the existing unique database index.
 - The transactional service logic, repository capacity queries, database schema, persistent volume, and concurrency protections are unchanged by this contract hotfix.
 - The assignment excludes authentication. The identity header is an ownership check, not verified authentication. No Phase 3 work is included.
+
+## 10. Phase 3 Browser Experience
+- A birth registration number identifies a student with exactly 17 ASCII digits. No login/password is introduced. Local storage retains only that identifier; disabled storage permits a page-only session with a visible notice.
+- The identifier is supplied exclusively through `X-Student-Id` for the required endpoints. Switching identities clears stale visible applications and aborts/ignores obsolete work. It is not secure authentication and shared devices require clearing identity.
+- Admin access is deliberately open in this assignment. Class and shift are represented by one backend class name; no separate shift schema or hardcoded seat availability is introduced.
+- Classes and the current student's applications are refetched every four seconds with cleanup and cancellation. Active countdowns use the backend UTC deadline and the browser clock; browser clock accuracy is assumed.
+- Confirmation simulates payment only. Cancellation requires a dialog and supports HTTP 204. Confirmed admissions expose no cancellation action.
+- The frontend uses React 18, TypeScript, Vite, existing CSS, and Lucide. Node's test runner and TypeScript support focused tests without an additional runtime framework.
+- PostgreSQL data, assignment API contracts, and transactional concurrency logic are unchanged. Phase 3 does not include production authentication, deployment, or Phase 4 work.
