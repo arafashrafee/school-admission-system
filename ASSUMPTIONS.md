@@ -70,3 +70,68 @@ This document records the final assignment assumptions and the historical decisi
 - `.env` is optional for local defaults. Compose derives API/test connection strings from PostgreSQL variables; changing environment passwords does not reset an existing volume's credentials.
 - The `test` profile waits for the backend health check, ensuring migrations exist before service tests on a fresh database. Test fixtures are removed by their owning tests; original application data and volumes are retained.
 - Final clean-start verification uses a separate public clone, project namespace, ports, and new volume. QA logs/screenshots remain ignored local artifacts.
+
+## 12. Optional bonus: two independent backend processes — verified
+
+**Result: PASS.** Codex executed this isolated check on November 11, 2026
+(Bangladesh time), against source commit `4e021b0df061c0da65e732078cb9f167573af645`.
+Production business logic was not changed.
+
+### Setup and procedure
+
+- A separate Compose project, `admission-bonus-20261111`, used a new named
+  `bonus_data` volume and PostgreSQL 16 database `bonus_admission`
+  (`max_connections=250`). No existing application database or volume was reused.
+- Two separate containers ran `dotnet SchoolAdmissionSystem.Api.dll` from the same
+  freshly built backend image, `admission-bonus-backend:4e021b0`
+  (image SHA-256 `b6cfdee2a3aec1e29e518f556fb8bc62b8d3768a2641de58a1f4506e74f8e304`).
+  They had distinct Docker-host process IDs: API A `38560`, API B `38694`.
+- API A listened on port 8081, published as `127.0.0.1:18081`; API B listened
+  on 8082, published as `127.0.0.1:18082`. Both connected to the same isolated
+  PostgreSQL service. Each had its own connection pool, capped at 100 connections.
+- API A initialized migrations/seed data before API B started. Both passed their
+  database-backed health checks before load began.
+- A new class with exactly 10 seats was created through API A and read back through
+  API B. Its UUID was `8c34dc53-4a3e-4c60-b8a1-8fdfd343dad6`.
+- A containerized Node.js verifier prepared 100 requests with distinct 17-digit
+  student IDs, alternated destinations (50 per API), and released them from one
+  shared promise barrier. Each request used `POST /classes/{classId}/holds` with
+  `X-Student-Id` and no body. There were no retries or batches.
+- Concurrent read loops queried each API's class seat counts, waiting five
+  milliseconds after each response before polling again. The verifier asserted
+  `heldSeats + confirmedSeats <= totalSeats` on every snapshot, exact HTTP status
+  totals, `CAPACITY_EXHAUSTED` on every conflict, and unique successful hold IDs.
+- Direct SQL then checked all stored allocations for that class and matched every
+  hold/student pair against the successful HTTP responses. No confirmation,
+  cancellation, deadline modification, or expiry occurred during this run;
+  the configured hold duration was 600 seconds.
+
+### Actual observations
+
+The request batch ran from `2026-11-10T19:53:47.082Z` to
+`2026-11-10T19:53:48.679Z` (1,597 milliseconds; November 11 in Bangladesh).
+
+| API | Reservation requests | HTTP 201 | HTTP 409 capacity conflicts |
+|---|---:|---:|---:|
+| A, port 8081 | 50 | 2 | 48 |
+| B, port 8082 | 50 | 8 | 42 |
+| **Total** | **100** | **10** | **90** |
+
+- Server/network errors: **0**; every reservation response was 201 or 409.
+- Occupancy snapshots: **182**; maximum observed HELD + CONFIRMED: **10**.
+- Both APIs reported the same final state: total **10**, HELD **10**, CONFIRMED
+  **0**, available **0**.
+- SQL recorded exactly **10** rows, **10** distinct hold IDs, and **10** distinct
+  student IDs; all were HELD, with no inactive rows or duplicate allocations.
+  All stored hold/student pairs matched the HTTP success responses.
+- The earliest stored deadline was `2026-11-10T20:03:47.271770Z`, after the entire
+  request batch. Occupancy was therefore monotonic in this reservation-only run:
+  the final SQL total of 10 also bounds the intervals between polling snapshots.
+  The capacity assertion is not based on sampling alone.
+- Neither API log contained failure-level entries, unhandled exceptions, database
+  errors, or deadlocks during verification.
+
+Temporary Compose/verification scripts and raw evidence were kept under
+`/private/tmp/admission-two-process-bonus-20261111/`, outside Git. The isolated
+containers were stopped after verification with their volume retained. Existing
+application data, services, volumes, and commits were preserved.
