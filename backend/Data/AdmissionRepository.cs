@@ -85,6 +85,71 @@ public class AdmissionRepository : IAdmissionRepository
                 cancellationToken);
     }
 
+    public async Task<AdmissionHold?> GetHoldByIdAsync(
+        Guid holdId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.AdmissionHolds
+            .Include(h => h.Class)
+            .FirstOrDefaultAsync(h => h.Id == holdId, cancellationToken);
+    }
+
+    public async Task<Guid?> GetHoldClassIdAsync(
+        Guid holdId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.AdmissionHolds
+            .AsNoTracking()
+            .Where(h => h.Id == holdId)
+            .Select(h => (Guid?)h.ClassId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<AdmissionHold>> GetHoldsByStudentIdAsync(
+        string studentId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.AdmissionHolds
+            .Include(h => h.Class)
+            .Where(h => h.StudentId == studentId)
+            .OrderByDescending(h => h.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<(int TotalSeats, int HeldSeats, int ConfirmedSeats, int AvailableSeats)> GetClassSeatBreakdownAsync(
+        Guid classId,
+        DateTime utcNow,
+        CancellationToken cancellationToken = default)
+    {
+        var admissionClass = await _context.AdmissionClasses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == classId, cancellationToken);
+
+        if (admissionClass == null)
+        {
+            return (0, 0, 0, 0);
+        }
+
+        // Active holds are HELD and not yet passed expiresAt (or clock-expired)
+        var counts = await _context.AdmissionHolds
+            .AsNoTracking()
+            .Where(h => h.ClassId == classId)
+            .GroupBy(h => h.Status)
+            .Select(g => new
+            {
+                Status = g.Key,
+                Count = g.Count(),
+                ValidHeldCount = g.Count(h => h.Status == HoldStatus.HELD && h.ExpiresAt > utcNow)
+            })
+            .ToListAsync(cancellationToken);
+
+        var held = counts.FirstOrDefault(c => c.Status == HoldStatus.HELD)?.ValidHeldCount ?? 0;
+        var confirmed = counts.FirstOrDefault(c => c.Status == HoldStatus.CONFIRMED)?.Count ?? 0;
+        var available = Math.Max(0, admissionClass.TotalSeats - (held + confirmed));
+
+        return (admissionClass.TotalSeats, held, confirmed, available);
+    }
+
     public async Task AddHoldAsync(
         AdmissionHold hold,
         CancellationToken cancellationToken = default)

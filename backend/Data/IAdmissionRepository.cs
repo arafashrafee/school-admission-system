@@ -63,6 +63,35 @@ public interface IAdmissionRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves an AdmissionHold by identifier.
+    /// </summary>
+    Task<AdmissionHold?> GetHoldByIdAsync(
+        Guid holdId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Looks up the parent ClassId for a hold without attaching the entity to change tracking.
+    /// </summary>
+    Task<Guid?> GetHoldClassIdAsync(
+        Guid holdId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves all holds associated with a student across classes.
+    /// </summary>
+    Task<List<AdmissionHold>> GetHoldsByStudentIdAsync(
+        string studentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns breakdown of total, held, confirmed, and available seats for a class.
+    /// </summary>
+    Task<(int TotalSeats, int HeldSeats, int ConfirmedSeats, int AvailableSeats)> GetClassSeatBreakdownAsync(
+        Guid classId,
+        DateTime utcNow,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds a new AdmissionHold record to the context.
     /// </summary>
     Task AddHoldAsync(

@@ -27,8 +27,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Register Repository
+// Register Repository and Business Service
 builder.Services.AddScoped<IAdmissionRepository, AdmissionRepository>();
+builder.Services.AddScoped<IAdmissionService, AdmissionService>();
 
 // Configure Admission & Expiration Options
 var holdDurationSeconds = builder.Configuration.GetValue<int>("HOLD_DURATION_SECONDS", 600);

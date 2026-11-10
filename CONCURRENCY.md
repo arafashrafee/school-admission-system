@@ -89,6 +89,13 @@ To achieve deterministic consistency under high concurrency without introducing 
 
 ## 3. Transaction Execution Ordering
 
+### Consistent Lock Hierarchy (Deadlock Prevention)
+All transactional lifecycle operations (`ReserveSeatAsync`, `ConfirmHoldAsync`, `CancelHoldAsync`) acquire an exclusive lock on the parent `AdmissionClass` row **before** reading or mutating `AdmissionHold` rows:
+1. `GetHoldClassIdAsync(holdId)` via non-tracking projection (no entity tracking).
+2. `GetClassWithLockAsync(classId)` executes `SELECT ... FOR UPDATE` on `AdmissionClasses`.
+3. Read / update `AdmissionHold` entities under active parent class lock.
+This strictly uniform lock acquisition hierarchy eliminates cyclic dependency deadlocks between concurrent hold allocations, confirmations, and cancellations.
+
 ### A. Seat Hold Allocation Workflow
 1. **Begin Transaction** with isolation level `ReadCommitted`.
 2. **Execute Row Lock:**
