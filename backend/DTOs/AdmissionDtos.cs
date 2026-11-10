@@ -3,8 +3,13 @@ using SchoolAdmissionSystem.Api.Models;
 namespace SchoolAdmissionSystem.Api.DTOs;
 
 public record CreateClassRequest(string? Name, int TotalSeats);
-public record ReserveSeatRequest(Guid ClassId, string? StudentId);
-public record StudentRequest(string? StudentId);
+// Assignment HTTP response shapes; service results below remain internal to the API layer.
+public record CreatedClassResponse(Guid Id, string Name, int TotalSeats);
+public record ClassResponse(Guid Id, string Name, int TotalSeats, int HeldSeats, int ConfirmedSeats, int AvailableSeats);
+public record CreatedHoldResponse(Guid HoldId, Guid ClassId, string StudentId, string Status, DateTime ExpiresAt);
+public record HoldResponse(Guid HoldId, Guid ClassId, string Status, DateTime ExpiresAt);
+public record ConfirmHoldResponse(Guid HoldId, string Status);
+public record StudentHoldResponse(Guid HoldId, Guid ClassId, string ClassName, string Status, DateTime ExpiresAt);
 public record ApiError(string Code, string Message);
 public record CreateClassResult(bool Success, string? ErrorCode, string? Message, ClassSeatCountsDto? Class);
 

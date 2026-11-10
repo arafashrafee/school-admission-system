@@ -47,9 +47,11 @@ This document outlines key engineering decisions and operational assumptions est
   1. *Eager Transactional Sweep:* Any allocation transaction for a class immediately sweeps its own expired holds (`ExpiresAt <= UtcNow`), freeing capacity instantly.
   2. *Periodic Background Sweeper:* `HoldExpirationWorker` sweeps all classes periodically (every 15s) to guarantee eventual consistency even during periods of low activity.
 
-## 9. Phase 2 API Contract
-- Expose eight business APIs under `/api`, covering class creation/list/counts and hold reservation/confirmation/cancellation/status/student history.
-- Retain the existing concurrency-safe service layer and repository interface additions.
+## 9. Phase 2 Assignment API Contract
+- Business routes are exactly `POST /classes`, `GET /classes`, `GET /classes/{classId}`, `POST /classes/{classId}/holds`, `GET /holds/{holdId}`, `POST /holds/{holdId}/confirm`, `DELETE /holds/{holdId}`, and `GET /me/holds`.
+- There is no `/api` prefix. Student identity comes only from the required `X-Student-Id` header on hold mutations and `/me/holds`, with exactly 17 ASCII digits.
+- Public DTOs match the assignment fields exactly. Class responses use `id` and `name`; only student history includes `className`. UUIDs are stable strings, status values are strings, and expiry timestamps are UTC.
+- Class creation and hold creation return 201; cancellation returns 204 with no body; reads and confirmation return 200. Full classes and invalid lifecycle transitions return 409.
 - Class names use exact, case-sensitive uniqueness after trimming. Concurrent duplicates are resolved by the existing unique database index.
-- Public responses use DTOs, string statuses, and clock-effective expiration; EF navigation properties are never serialized.
-- No additional authentication, payment processing, or frontend workflow is introduced in this phase.
+- The transactional service logic, repository capacity queries, database schema, persistent volume, and concurrency protections are unchanged by this contract hotfix.
+- The assignment excludes authentication. The identity header is an ownership check, not verified authentication. No Phase 3 work is included.

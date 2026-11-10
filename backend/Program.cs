@@ -11,6 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
+// Return binding failures as 400 in every environment, including Development.
+builder.Services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options =>
+    options.ThrowOnBadRequest = false);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 

@@ -142,36 +142,52 @@ school-admission-system/
 
 ## Phase 2 Admission APIs
 
-All eight business APIs use the `/api` prefix. Student IDs are JSON strings of
-exactly 17 ASCII digits, including any leading zeroes. Status values are strings:
-`HELD`, `CONFIRMED`, `EXPIRED`, or `CANCELLED`. Timestamps are UTC.
+The assignment exposes exactly these eight business operations, without a prefix.
+IDs are stable UUID strings. Timestamps are UTC ISO 8601 strings. Status values
+are `HELD`, `CONFIRMED`, `EXPIRED`, and `CANCELLED`.
 
-| Method | Path | Request / response |
-|---|---|---|
-| POST | `/api/classes` | `{ "name": "Class 2", "totalSeats": 30 }` → 201 with seat counts |
-| GET | `/api/classes` | All classes with total, held, confirmed, and available seats |
-| GET | `/api/classes/{classId}/seats` | Seat counts for one class |
-| POST | `/api/holds` | `{ "classId": "<uuid>", "studentId": "00000000000000001" }` → 201 with hold |
-| POST | `/api/holds/{holdId}/confirm` | `{ "studentId": "00000000000000001" }` → confirmed hold; repeat is idempotent |
-| POST | `/api/holds/{holdId}/cancel` | `{ "studentId": "00000000000000001" }` → cancelled hold |
-| GET | `/api/holds/{holdId}` | Hold status and expiration timestamps |
-| GET | `/api/students/{studentId}/holds` | Student's holds, newest first; empty array if none |
+| Method | Path | Success | Exact response fields |
+|---|---|---|---|
+| POST | `/classes` | 201 | `id`, `name`, `totalSeats` |
+| GET | `/classes` | 200 array | `id`, `name`, `totalSeats`, `heldSeats`, `confirmedSeats`, `availableSeats` |
+| GET | `/classes/{classId}` | 200 | Same class fields as the list |
+| POST | `/classes/{classId}/holds` | 201 | `holdId`, `classId`, `studentId`, `status`, `expiresAt` |
+| GET | `/holds/{holdId}` | 200 | `holdId`, `classId`, `status`, `expiresAt` |
+| POST | `/holds/{holdId}/confirm` | 200 | `holdId`, `status` |
+| DELETE | `/holds/{holdId}` | 204 | Empty body |
+| GET | `/me/holds` | 200 array | `holdId`, `classId`, `className`, `status`, `expiresAt` |
 
-Class names are trimmed, case-sensitive, unique, and 1–100 characters long.
-Seat totals must be positive. Successful creation returns a `Location` header.
-Hold responses include `holdId`, `classId`, `studentId`, `status`, `createdAt`,
-`expiresAt`, `confirmedAt`, and `isExpiredAccordingToClock`.
+`POST /classes` accepts `{ "name": "Class 2", "totalSeats": 30 }`. Names are
+trimmed, case-sensitive, unique, and 1–100 characters long. Seat totals must be
+positive. Creation responses include `Location` pointing to the new resource.
+
+**Student identity:** `X-Student-Id` is required for hold creation, confirmation,
+cancellation, and `/me/holds`. It must contain exactly 17 ASCII decimal digits,
+preserving leading zeroes. Identity is never read from URL parameters or request
+bodies. These operations need no request body. `/me/holds` returns only the header
+student's holds, newest first, and an empty array when none exist.
+
+```bash
+curl -i -X POST http://localhost:8080/classes \
+  -H 'Content-Type: application/json' -d '{"name":"Class 2","totalSeats":30}'
+curl -i -X POST 'http://localhost:8080/classes/<classId>/holds' \
+  -H 'X-Student-Id: 00000000000000001'
+curl -i http://localhost:8080/me/holds -H 'X-Student-Id: 00000000000000001'
+```
 
 Business errors return `{ "code": "...", "message": "..." }` with HTTP 400 for
-invalid input, 403 for a mismatched owner, 404 for a missing class/hold, and 409
-for duplicate classes/applications, full classes, or invalid lifecycle transitions.
-Unexpected server failures return HTTP 500 without database exception details.
-Malformed JSON and invalid route parameter syntax use ASP.NET Core's standard responses.
+invalid input or a missing/invalid identity header, 403 for a mismatched owner,
+404 for a missing class/hold, and 409 for duplicate classes/applications, no seats,
+or invalid lifecycle transitions. Malformed JSON and invalid route parameter
+syntax use ASP.NET Core's standard 4xx responses. Unexpected server failures
+return HTTP 500 without database exception details.
 
-Clock-expired holds appear as `EXPIRED` and no longer consume available seats,
-even before the background worker persists the transition. These APIs inherit the
-assignment's no-authentication scope: the supplied student ID is an ownership
-check, not proof of identity.
+Confirmation and cancellation are idempotent for the owning student. Confirmed
+holds cannot be cancelled. Clock-expired holds appear as `EXPIRED` and release
+available capacity before the background worker persists the transition. Existing
+PostgreSQL transactions, class row locks, and uniqueness constraints remain the
+capacity authority. The assignment excludes authentication: the header checks
+ownership but does not prove identity.
 
 ### Run the full test suite with Docker
 
@@ -189,7 +205,24 @@ to `docker run`. Tests use uniquely named classes and remove only their own rows
 they never reset the database. HTTP integration tests apply migrations on startup.
 Service tests include 100 parallel allocations against 10 seats, duplicate
 applications, expiration, ownership, cancellation, confirmation idempotency, and
-confirm/cancel races. HTTP tests cover all eight APIs and concurrent class creation.
+confirm/cancel races. HTTP tests assert exact methods, routes, response fields, status codes, UTC expiry,
+header validation, student isolation, concurrent class creation, and 100 parallel
+HTTP hold requests against 10 seats. All existing service concurrency tests remain.
 
 With a local .NET 8 SDK and a reachable database, set
 `ConnectionStrings__DefaultConnection` and run `dotnet test SchoolAdmissionSystem.sln`.
+
+To execute the HTTP contract suite against the running Compose backend:
+
+```bash
+docker run --rm --network school-admission-system_default \
+  -e ADMISSION_LIVE_URL=http://backend:8080 school-admission-tests \
+  --filter FullyQualifiedName~AdmissionApiTests
+```
+
+The same assertions verify live routes, exact response fields, identity isolation,
+and parallel allocation. Tests clean up only the classes and holds they create.
+
+The stress-test classes run sequentially and share a PostgreSQL connection pool
+to stay within the database connection limit while the live backend is running.
+Each stress test still submits 100 requests in parallel.
