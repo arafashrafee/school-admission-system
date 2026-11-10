@@ -36,3 +36,12 @@ This document outlines key engineering decisions and operational assumptions est
 ## 7. Security & Confidentiality
 - **Client Bundles:** Only non-sensitive URLs (`VITE_API_URL`) are prefixed with `VITE_`. Database passwords and secret keys are never exposed to the frontend.
 - **Confidential Assets:** `*.pdf` files and assignment specification documents are explicitly ignored in `.gitignore` and must never be committed to source control or pushed externally.
+
+## 8. Phase 1A Database Architecture & Concurrency
+- **StudentId Format:** Stored as `varchar(17)` with database check constraint `length("StudentId") = 17 AND "StudentId" ~ '^[0-9]{17}$'`. Preserves leading zeroes deterministically.
+- **Hold Statuses:** Strictly constrained via check constraint to `HELD`, `CONFIRMED`, `EXPIRED`, `CANCELLED`.
+- **Active Hold Uniqueness:** Partial unique index on `("ClassId", "StudentId") WHERE "Status" IN ('HELD', 'CONFIRMED')`. Non-time-dependent. Ensures active duplicate applications are blocked at the database level while expired holds do not block future applications.
+- **Row-Level Serialization:** Allocation transactions acquire an exclusive lock on the parent `AdmissionClass` row via `SELECT ... FOR UPDATE`, ensuring database-atomic capacity enforcement without race conditions or in-memory caches.
+- **Two-Tier Expiration:**
+  1. *Eager Transactional Sweep:* Any allocation transaction for a class immediately sweeps its own expired holds (`ExpiresAt <= UtcNow`), freeing capacity instantly.
+  2. *Periodic Background Sweeper:* `HoldExpirationWorker` sweeps all classes periodically (every 15s) to guarantee eventual consistency even during periods of low activity.
