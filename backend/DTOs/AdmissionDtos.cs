@@ -2,6 +2,12 @@ using SchoolAdmissionSystem.Api.Models;
 
 namespace SchoolAdmissionSystem.Api.DTOs;
 
+public record CreateClassRequest(string? Name, int TotalSeats);
+public record ReserveSeatRequest(Guid ClassId, string? StudentId);
+public record StudentRequest(string? StudentId);
+public record ApiError(string Code, string Message);
+public record CreateClassResult(bool Success, string? ErrorCode, string? Message, ClassSeatCountsDto? Class);
+
 public record ReserveSeatResult(
     bool Success,
     string? ErrorCode,

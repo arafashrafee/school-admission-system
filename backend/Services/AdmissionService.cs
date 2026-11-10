@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using SchoolAdmissionSystem.Api.Configuration;
 using SchoolAdmissionSystem.Api.Data;
 using SchoolAdmissionSystem.Api.DTOs;
@@ -26,11 +28,42 @@ public partial class AdmissionService : IAdmissionService
         _logger = logger;
     }
 
-    private static bool IsValidStudentId(string? studentId)
+    public static bool IsValidStudentId(string? studentId)
     {
         return !string.IsNullOrWhiteSpace(studentId) &&
                studentId.Length == 17 &&
                StudentIdRegex().IsMatch(studentId);
+    }
+
+    public async Task<CreateClassResult> CreateClassAsync(string? name, int totalSeats, CancellationToken cancellationToken = default)
+    {
+        name = name?.Trim();
+        if (string.IsNullOrEmpty(name) || name.Length > 100 || totalSeats <= 0)
+            return new(false, "INVALID_CLASS", "Name must contain 1–100 characters and totalSeats must be positive.", null);
+
+        if (await _repository.GetClassByNameAsync(name, cancellationToken) != null)
+            return new(false, "DUPLICATE_CLASS", "A class with this name already exists.", null);
+
+        var admissionClass = new AdmissionClass { Name = name, TotalSeats = totalSeats };
+        await _repository.AddClassAsync(admissionClass, cancellationToken);
+        try
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+            { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_AdmissionClasses_Name" })
+        {
+            // The unique index arbitrates concurrent requests that pass the pre-check together.
+            return new(false, "DUPLICATE_CLASS", "A class with this name already exists.", null);
+        }
+        return new(true, null, null, new(admissionClass.Id, name, totalSeats, 0, 0, totalSeats));
+    }
+
+    public async Task<List<ClassSeatCountsDto>> GetClassesAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await _repository.GetAllClassesWithSeatCountsAsync(DateTime.UtcNow, cancellationToken);
+        return rows.Select(r => new ClassSeatCountsDto(r.Class.Id, r.Class.Name, r.Class.TotalSeats,
+            r.HeldSeats, r.ConfirmedSeats, r.AvailableSeats)).ToList();
     }
 
     public async Task<ReserveSeatResult> ReserveSeatAsync(
@@ -389,7 +422,7 @@ public partial class AdmissionService : IAdmissionService
             hold.Id,
             hold.ClassId,
             hold.StudentId,
-            hold.Status,
+            isExpiredAccordingToClock ? HoldStatus.EXPIRED : hold.Status,
             hold.CreatedAt,
             hold.ExpiresAt,
             hold.ConfirmedAt,

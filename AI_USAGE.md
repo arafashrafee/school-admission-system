@@ -21,3 +21,9 @@ This document records how AI tooling (Antigravity Senior Software Engineer Agent
 - **Security & Privacy:** Ensured confidential assignment specifications and PDFs are ignored from version control (`*.pdf`). Protected frontend bundles from environment secret leakage.
 - **Architectural Restraint:** Kept architecture clean and lean: avoided extraneous dependencies such as Redis, distributed brokers, or microservice boilerplate.
 - **Verification Priority:** Validated full compilation, image building, container networking, and endpoint health through live execution tests.
+
+## Phase 2: Admission HTTP APIs
+- Codex continued the existing uncommitted repository interface changes and implemented class creation/listing plus HTTP access to the six existing admission service operations.
+- Added request validation, HTTP status mapping, response DTOs, string enum serialization, and clock-effective expiration reporting.
+- Added PostgreSQL-backed HTTP integration tests and a Docker test runner, retaining the existing concurrency tests and database contents.
+- Updated API and test documentation. Verification outcomes are recorded in the delivery summary and commit.

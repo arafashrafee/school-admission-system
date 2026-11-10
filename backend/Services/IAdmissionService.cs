@@ -5,6 +5,9 @@ namespace SchoolAdmissionSystem.Api.Services;
 
 public interface IAdmissionService
 {
+    Task<CreateClassResult> CreateClassAsync(string? name, int totalSeats, CancellationToken cancellationToken = default);
+    Task<List<ClassSeatCountsDto>> GetClassesAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Atomically attempts to reserve a seat in the specified class for a student.
     /// Serializes with SELECT FOR UPDATE on the parent class, sweeps expired holds, checks duplicate student, and enforces capacity.

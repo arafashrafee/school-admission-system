@@ -46,3 +46,10 @@ This document outlines key engineering decisions and operational assumptions est
 - **Two-Tier Expiration:**
   1. *Eager Transactional Sweep:* Any allocation transaction for a class immediately sweeps its own expired holds (`ExpiresAt <= UtcNow`), freeing capacity instantly.
   2. *Periodic Background Sweeper:* `HoldExpirationWorker` sweeps all classes periodically (every 15s) to guarantee eventual consistency even during periods of low activity.
+
+## 9. Phase 2 API Contract
+- Expose eight business APIs under `/api`, covering class creation/list/counts and hold reservation/confirmation/cancellation/status/student history.
+- Retain the existing concurrency-safe service layer and repository interface additions.
+- Class names use exact, case-sensitive uniqueness after trimming. Concurrent duplicates are resolved by the existing unique database index.
+- Public responses use DTOs, string statuses, and clock-effective expiration; EF navigation properties are never serialized.
+- No additional authentication, payment processing, or frontend workflow is introduced in this phase.

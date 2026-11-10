@@ -1,0 +1,7 @@
+.git
+.env
+*.pdf
+**/node_modules
+**/bin
+**/obj
+frontend/dist

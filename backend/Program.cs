@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using SchoolAdmissionSystem.Api;
 using Microsoft.EntityFrameworkCore;
 using SchoolAdmissionSystem.Api.Configuration;
 using SchoolAdmissionSystem.Api.Data;
@@ -8,6 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -44,6 +49,7 @@ builder.Services.AddHostedService<HoldExpirationWorker>();
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
 app.UseCors("AllowFrontend");
 
 if (app.Environment.IsDevelopment())
@@ -133,10 +139,12 @@ app.MapGet("/health", async (ApplicationDbContext db, ILogger<Program> logger) =
 app.MapGet("/", () => Results.Ok(new
 {
     service = "School Admission System API",
-    version = "Phase 1A Database Foundation",
+    version = "Phase 2 Admission APIs",
     status = "Running",
     healthEndpoint = "/health",
     holdDurationSeconds
 }));
+
+app.MapAdmissionEndpoints();
 
 app.Run();

@@ -40,6 +40,27 @@ public class AdmissionRepository : IAdmissionRepository
             .FirstOrDefaultAsync(c => c.Id == classId, cancellationToken);
     }
 
+    public Task<AdmissionClass?> GetClassByNameAsync(string name, CancellationToken cancellationToken = default)
+        => _context.AdmissionClasses.AsNoTracking().FirstOrDefaultAsync(c => c.Name == name, cancellationToken);
+
+    public async Task AddClassAsync(AdmissionClass admissionClass, CancellationToken cancellationToken = default)
+        => await _context.AdmissionClasses.AddAsync(admissionClass, cancellationToken);
+
+    public async Task<List<(AdmissionClass Class, int HeldSeats, int ConfirmedSeats, int AvailableSeats)>> GetAllClassesWithSeatCountsAsync(
+        DateTime utcNow, CancellationToken cancellationToken = default)
+    {
+        // One SQL snapshot for all class totals, including classes with no holds.
+        var rows = await _context.AdmissionClasses.AsNoTracking().OrderBy(c => c.Name)
+            .Select(c => new
+            {
+                Class = c,
+                Held = c.Holds.Count(h => h.Status == HoldStatus.HELD && h.ExpiresAt > utcNow),
+                Confirmed = c.Holds.Count(h => h.Status == HoldStatus.CONFIRMED)
+            }).ToListAsync(cancellationToken);
+        return rows.Select(r => (r.Class, r.Held, r.Confirmed,
+            Math.Max(0, r.Class.TotalSeats - r.Held - r.Confirmed))).ToList();
+    }
+
     public async Task<int> ExpireOverdueHoldsForClassAsync(
         Guid classId,
         DateTime utcNow,

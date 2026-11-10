@@ -32,6 +32,27 @@ public interface IAdmissionRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Finds an AdmissionClass by exact name without locking.
+    /// </summary>
+    Task<AdmissionClass?> GetClassByNameAsync(
+        string name,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists a newly created AdmissionClass.
+    /// </summary>
+    Task AddClassAsync(
+        AdmissionClass admissionClass,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns all classes with their respective seat breakdowns (total, held, confirmed, available).
+    /// </summary>
+    Task<List<(AdmissionClass Class, int HeldSeats, int ConfirmedSeats, int AvailableSeats)>> GetAllClassesWithSeatCountsAsync(
+        DateTime utcNow,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Transition overdue HELD records for a specific class to EXPIRED status, immediately releasing capacity.
     /// </summary>
     Task<int> ExpireOverdueHoldsForClassAsync(
