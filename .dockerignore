@@ -1,7 +1,15 @@
 .git
 .env
+.env.*
+**/.env
+**/.env.*
 *.pdf
+**/*.pdf
 **/node_modules
 **/bin
 **/obj
-frontend/dist
+**/dist
+**/.test-build
+**/*.tsbuildinfo
+output
+.playwright-cli

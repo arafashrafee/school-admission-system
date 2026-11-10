@@ -3,3 +3,10 @@ obj/
 .vs/
 .vscode/
 .idea/
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+*.pdf
+**/*.pdf

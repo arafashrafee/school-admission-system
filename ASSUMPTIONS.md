@@ -1,12 +1,12 @@
 # Architectural Assumptions & Design Decisions
 
-This document outlines key engineering decisions and operational assumptions established during Phase 0 for the **School Admission System**.
+This document records the final assignment assumptions and the historical decisions established across its implementation phases.
 
 ---
 
 ## 1. Scope & Phasing
 - **Phase 0 Scope:** Limited strictly to project scaffolding, containerization, environment configuration, database readiness verification, and initial front-to-back connectivity.
-- **Business Logic Postponed:** Seat allocation, applicant forms, payment simulation, and admission lifecycle state machines will be designed and implemented in subsequent phases.
+- **Completed scope:** Later phases implemented transactional seat allocation, the admission lifecycle, simulated confirmation, and functional student/Admin browser workflows.
 
 ## 2. Authentication & Authorization
 - **No Login / Authentication:** In accordance with assignment constraints, user login, JWT tokens, and role-based access control (RBAC) are excluded to prioritize admission workflow correctness, concurrency handling, and clean code architecture.
@@ -54,7 +54,7 @@ This document outlines key engineering decisions and operational assumptions est
 - Class creation and hold creation return 201; cancellation returns 204 with no body; reads and confirmation return 200. Full classes and invalid lifecycle transitions return 409.
 - Class names use exact, case-sensitive uniqueness after trimming. Concurrent duplicates are resolved by the existing unique database index.
 - The transactional service logic, repository capacity queries, database schema, persistent volume, and concurrency protections are unchanged by this contract hotfix.
-- The assignment excludes authentication. The identity header is an ownership check, not verified authentication. No Phase 3 work is included.
+- The assignment excludes authentication. The identity header is an ownership check, not verified authentication. The Phase 2 hotfix did not include frontend work.
 
 ## 10. Phase 3 Browser Experience
 - A birth registration number identifies a student with exactly 17 ASCII digits. No login/password is introduced. Local storage retains only that identifier; disabled storage permits a page-only session with a visible notice.
@@ -64,3 +64,9 @@ This document outlines key engineering decisions and operational assumptions est
 - Confirmation simulates payment only. Cancellation requires a dialog and supports HTTP 204. Confirmed admissions expose no cancellation action.
 - The frontend uses React 18, TypeScript, Vite, existing CSS, and Lucide. Node's test runner and TypeScript support focused tests without an additional runtime framework.
 - PostgreSQL data, assignment API contracts, and transactional concurrency logic are unchanged. Phase 3 does not include production authentication, deployment, or Phase 4 work.
+
+## 11. Final evaluator setup
+- Docker Compose v2 is the only application prerequisite; initial builds need internet access to package/image registries and the documented host ports must be free.
+- `.env` is optional for local defaults. Compose derives API/test connection strings from PostgreSQL variables; changing environment passwords does not reset an existing volume's credentials.
+- The `test` profile waits for the backend health check, ensuring migrations exist before service tests on a fresh database. Test fixtures are removed by their owning tests; original application data and volumes are retained.
+- Final clean-start verification uses a separate public clone, project namespace, ports, and new volume. QA logs/screenshots remain ignored local artifacts.

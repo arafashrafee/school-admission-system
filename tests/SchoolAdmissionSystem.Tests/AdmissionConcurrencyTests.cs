@@ -456,4 +456,68 @@ public class AdmissionConcurrencyTests
             await cleanupDb.SaveChangesAsync();
         }
     }
+
+    [Theory]
+    [InlineData(-1000)]
+    [InlineData(25)]
+    [InlineData(60000)]
+    public async Task ConfirmationCancellationAndExpirationSweep_RaceToOneTerminalState(int expiresInMilliseconds)
+    {
+        await using var db = CreateDbContext();
+        var offering = new AdmissionClass { Name = $"Three-Way-Race-{Guid.NewGuid():N}", TotalSeats = 1 };
+        var hold = new AdmissionHold
+        {
+            ClassId = offering.Id, StudentId = "00000000000000404", Status = HoldStatus.HELD,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-1), ExpiresAt = DateTime.UtcNow.AddMilliseconds(expiresInMilliseconds)
+        };
+        db.AdmissionClasses.Add(offering);
+        db.AdmissionHolds.Add(hold);
+        await db.SaveChangesAsync();
+        try
+        {
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var confirm = Task.Run(async () =>
+            {
+                await using var context = CreateDbContext();
+                await start.Task;
+                return await CreateAdmissionService(context).ConfirmHoldAsync(hold.Id, hold.StudentId);
+            });
+            var cancel = Task.Run(async () =>
+            {
+                await using var context = CreateDbContext();
+                await start.Task;
+                return await CreateAdmissionService(context).CancelHoldAsync(hold.Id, hold.StudentId);
+            });
+            var sweep = Task.Run(async () =>
+            {
+                await using var context = CreateDbContext();
+                await start.Task;
+                return await new AdmissionRepository(context).ExpireAllOverdueHoldsAsync(DateTime.UtcNow);
+            });
+            start.SetResult();
+            await Task.WhenAll(confirm, cancel, sweep);
+            await using var verify = CreateDbContext();
+            var final = await verify.AdmissionHolds.AsNoTracking().SingleAsync(h => h.Id == hold.Id);
+            final.Status.Should().BeOneOf(HoldStatus.CONFIRMED, HoldStatus.CANCELLED, HoldStatus.EXPIRED);
+            (await confirm).ErrorCode.Should().NotBe("DATABASE_ERROR");
+            (await cancel).ErrorCode.Should().NotBe("DATABASE_ERROR");
+            (await confirm).Success.Should().Be(final.Status == HoldStatus.CONFIRMED);
+            (await cancel).Success.Should().Be(final.Status == HoldStatus.CANCELLED);
+            if (expiresInMilliseconds < 0) final.Status.Should().Be(HoldStatus.EXPIRED);
+            if (expiresInMilliseconds == 60000) final.Status.Should().NotBe(HoldStatus.EXPIRED);
+            var counts = await CreateAdmissionService(verify).GetClassSeatCountsAsync(offering.Id);
+            counts!.HeldSeats.Should().Be(0);
+            counts.ConfirmedSeats.Should().Be(final.Status == HoldStatus.CONFIRMED ? 1 : 0);
+            counts.AvailableSeats.Should().Be(final.Status == HoldStatus.CONFIRMED ? 0 : 1);
+            var next = await CreateAdmissionService(verify).ReserveSeatAsync(offering.Id, "00000000000000405");
+            next.Success.Should().Be(final.Status != HoldStatus.CONFIRMED);
+        }
+        finally
+        {
+            await using var cleanup = CreateDbContext();
+            await cleanup.AdmissionHolds.Where(h => h.ClassId == offering.Id).ExecuteDeleteAsync();
+            await cleanup.AdmissionClasses.Where(c => c.Id == offering.Id).ExecuteDeleteAsync();
+        }
+    }
+
 }

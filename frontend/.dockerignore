@@ -2,10 +2,13 @@ node_modules
 dist
 .git
 .gitignore
-
 .test-build
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
 .env
 .env.*
+**/.env
+**/.env.*
+*.pdf
+**/*.pdf

@@ -1,7 +1,16 @@
 # AI Usage & Collaboration Disclosure
 
 ## Overview
-This document records how AI tooling (Antigravity Senior Software Engineer Agent) was used in the architecture, scaffolding, and verification of the **School Admission System**.
+The original project disclosure credits **Antigravity** with initial architecture,
+scaffolding, and infrastructure verification. **Codex** continued the existing
+repository for Phase 2, its API-contract hotfix, the Phase 3 frontend, and Phase 4 QA.
+The database/concurrency implementation already existed when Codex continued; this
+record does not attribute unrecorded work to a human or another tool.
+
+No other AI assistant was used during the recorded Codex work. Docker, Git, npm,
+TypeScript, xUnit, Node's test runner, and Playwright/Chrome were verification tools.
+Reported browser checks were agent-driven automation, not claims of unperformed
+human manual testing or a separate human reviewer.
 
 ---
 
@@ -45,3 +54,14 @@ This document records how AI tooling (Antigravity Senior Software Engineer Agent
 - Verification includes frontend tests/build, the unchanged backend regression suite, Docker Compose, and an isolated real Chrome session driven through Playwright. Browser expiry verification uses a shortened deadline only on its temporary QA hold; application timers remain server-driven.
 - Final checks: 15 frontend tests passed, TypeScript and production build passed locally and inside Docker, and all 31 existing backend tests passed. The dependency audit reported zero vulnerabilities.
 - Real Chrome verification covered Admin creation/duplicate errors, valid student onboarding, reserve/cancel/reapply/expire/confirm, full-class disabling, identity isolation and clearing, reload/reopened-tab persistence, countdown continuity, and offline recovery. All three screens were checked at widths 320, 390, 768, and 1440 with no horizontal overflow; desktop and mobile screenshots were visually reviewed. Temporary QA database records were removed without resetting persistent data.
+
+## Phase 4: Final Quality Assurance
+- Codex independently reran verification rather than relying on earlier phase summaries: a public clone at the expected starting commit was built with Docker, separate containers/ports/network, and a new PostgreSQL volume. Migrations and seed data initialized without a host .NET SDK or Node.js requirement.
+- Reviewed the eight exact API operations, header-only identity, response DTOs/statuses, ownership/idempotency, transactional allocation, background expiry, and frontend persistence/error handling. No production business-logic defect was confirmed.
+- Corrected evaluator documentation: public clone quickstart, Docker-only test commands, current frontend description, safe persistence instructions, actual class-row lock ordering, and commit-on-expiration behavior. Removed unused example environment settings.
+- Added a test-only Compose profile that waits for backend health/migrations, strengthened environment/PDF/build-artifact ignores, and retained every original test assertion. Three additional cases race confirmation, cancellation, and the expiry sweep for past, near, and future deadlines.
+- Verified 15 frontend tests plus TypeScript/production build, 34 backend tests on both the existing and isolated databases, and 23 real HTTP contract tests against the running API. The 100-request/10-seat cases require exactly 10 successes and 90 conflicts.
+- SQL-only observation verified the isolated background worker persisted EXPIRED without follow-up API calls. The same UUID and status survived PostgreSQL and API/frontend container restarts.
+- Chrome QA used uniquely named Phase 4 offerings and test identities for creation, validation, full/duplicate states, reservation, countdown, simulated confirmation, cancellation, expiry/reapplication, identity isolation, page reload/reopened tab, and offline recovery. All three screens were checked at 320/390/768/1440px; generated screenshots/logs remain ignored local artifacts.
+- Repository/history scanning found no confidential PDFs, environment files, dependency/build outputs, or secret-pattern findings in reachable commits. Public local-demo database defaults remain intentionally documented; this is not a claim that static scanning can mathematically prove the absence of every possible secret.
+- Full Chrome close/reopen with a dedicated persistent QA profile restored the same test identity and confirmed application. QA fixtures were removed only by their exact test class names/UUIDs and student IDs; the isolated stack was stopped with its volume retained. The main application remained running with original data preserved.

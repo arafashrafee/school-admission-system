@@ -56,6 +56,18 @@ services:
     ports:
       - "5173:5173"
 
+  tests:
+    profiles: [test]
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-school_admission};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres};Maximum Pool Size=100;Connection Idle Lifetime=10
+
 volumes:
   postgres_data:
     driver: local
